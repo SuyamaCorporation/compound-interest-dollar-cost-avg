@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ドルコスト平均法×複利成長シミュレーター</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">ドルコスト平均法×複利成長シミュレーター</h1>
+    <p class="text-gray-500 text-sm mb-6">毎月積立×複利成長のシミュレーション。一括投資との比較と景気変動シナリオ付き。</p>
+
+    <!-- 入力フォーム -->
+    <div class="bg-white rounded-xl shadow p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-700 mb-4">投資条件を入力</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="initialInvest">初期投資額（万円）</label>
+          <input id="initialInvest" type="number" min="0" max="10000" value="100" aria-label="初期投資額（万円）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="monthlyInvest">月次積立額（万円）</label>
+          <input id="monthlyInvest" type="number" min="0" max="1000" value="5" aria-label="月次積立額（万円）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="annualRate">年間利回り（%）</label>
+          <input id="annualRate" type="number" min="0" max="50" step="0.1" value="5" aria-label="年間利回り（%）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="years">投資期間（年）</label>
+          <input id="years" type="number" min="1" max="50" value="20" aria-label="投資期間（年）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1" for="riskFreeRate">無リスク金利（%）</label>
+          <input id="riskFreeRate" type="number" min="0" max="20" step="0.1" value="0.1" aria-label="無リスク金利（%）"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+      </div>
+      <button id="calcBtn" aria-label="シミュレーション実行"
+        class="mt-5 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-2 rounded-lg transition">
+        シミュレーション実行
+      </button>
+    </div>
+
+    <!-- 結果サマリ -->
+    <div id="resultSummary" class="hidden">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-gray-500 mb-1">最終資産額（積立）</div>
+          <div id="resFinal" class="text-2xl font-bold text-blue-700">-</div>
+          <div class="text-xs text-gray-400">万円</div>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-gray-500 mb-1">総投資額</div>
+          <div id="resTotalInvest" class="text-2xl font-bold text-green-700">-</div>
+          <div class="text-xs text-gray-400">万円</div>
+        </div>
+        <div class="bg-yellow-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-gray-500 mb-1">運用益（利益額）</div>
+          <div id="resProfit" class="text-2xl font-bold text-yellow-700">-</div>
+          <div class="text-xs text-gray-400">万円</div>
+        </div>
+      </div>
+
+      <!-- 一括投資比較 -->
+      <div class="bg-white rounded-xl shadow p-4 mb-6">
+        <h2 class="text-base font-semibold text-gray-700 mb-2">一括投資との比較</h2>
+        <div id="lumpSumCompare" class="text-sm text-gray-600"></div>
+      </div>
+
+      <!-- シナリオ比較 -->
+      <div class="bg-white rounded-xl shadow p-4 mb-6">
+        <h2 class="text-base font-semibold text-gray-700 mb-3">景気変動シナリオ比較</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="scenarios"></div>
+      </div>
+
+      <!-- SVGグラフ -->
+      <div class="bg-white rounded-xl shadow p-4 mb-6">
+        <h2 class="text-base font-semibold text-gray-700 mb-3">資産成長曲線</h2>
+        <div class="flex gap-4 text-xs text-gray-500 mb-2 flex-wrap">
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-blue-500 rounded-sm"></span>元本（積立）</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-blue-200 rounded-sm"></span>利益（積立）</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 bg-orange-400 rounded-sm"></span>一括投資</span>
+        </div>
+        <div class="overflow-x-auto">
+          <svg id="chart" viewBox="0 0 700 300" class="w-full" aria-label="資産成長曲線グラフ" role="img"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+    const STORAGE_KEY = 'dca-sim-v1';
+
+    function loadSettings() {
+      try {
+        const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (d.initialInvest !== undefined) document.getElementById('initialInvest').value = d.initialInvest;
+        if (d.monthlyInvest !== undefined) document.getElementById('monthlyInvest').value = d.monthlyInvest;
+        if (d.annualRate !== undefined) document.getElementById('annualRate').value = d.annualRate;
+        if (d.years !== undefined) document.getElementById('years').value = d.years;
+        if (d.riskFreeRate !== undefined) document.getElementById('riskFreeRate').value = d.riskFreeRate;
+      } catch(e){}
+    }
+
+    function saveSettings(params) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(params)); } catch(e){}
+    }
+
+    function simulateDCA(initialInvest, monthlyInvest, annualRate, years) {
+      const monthlyRate = annualRate / 100 / 12;
+      const months = years * 12;
+      const data = [];
+      let balance = initialInvest;
+      let totalInvested = initialInvest;
+      for (let m = 1; m <= months; m++) {
+        balance = balance * (1 + monthlyRate) + monthlyInvest;
+        totalInvested += monthlyInvest;
+        if (m % 12 === 0 || m === months) {
+          data.push({ year: m / 12, balance, totalInvested });
+        }
+      }
+      return data;
+    }
+
+    function simulateLumpSum(initialInvest, monthlyInvest, annualRate, years) {
+      // 一括投資: 総投資額を最初に全額投入
+      const totalInvested = initialInvest + monthlyInvest * 12 * years;
+      const monthlyRate = annualRate / 100 / 12;
+      const months = years * 12;
+      const data = [];
+      let balance = totalInvested;
+      for (let m = 1; m <= months; m++) {
+        balance = balance * (1 + monthlyRate);
+        if (m % 12 === 0 || m === months) {
+          data.push({ year: m / 12, balance });
+        }
+      }
+      return data;
+    }
+
+    function fmt(v) {
+      return v.toLocaleString('ja-JP', { maximumFractionDigits: 1 });
+    }
+
+    function drawChart(dcaData, lumpData) {
+      const svg = document.getElementById('chart');
+      const W = 700, H = 300;
+      const PAD = { top: 20, right: 20, bottom: 36, left: 70 };
+      const cW = W - PAD.left - PAD.right;
+      const cH = H - PAD.top - PAD.bottom;
+
+      const maxY = Math.max(
+        ...dcaData.map(d => d.balance),
+        ...lumpData.map(d => d.balance)
+      );
+      const minY = 0;
+      const maxX = dcaData[dcaData.length - 1].year;
+
+      const sx = x => PAD.left + (x / maxX) * cW;
+      const sy = y => PAD.top + cH - ((y - minY) / (maxY - minY)) * cH;
+
+      let html = '';
+
+      // グリッド線
+      for (let i = 0; i <= 4; i++) {
+        const y = PAD.top + (cH / 4) * i;
+        const val = maxY * (1 - i / 4);
+        html += `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" stroke="#e5e7eb" stroke-width="1"/>`;
+        html += `<text x="${PAD.left - 5}" y="${y + 4}" text-anchor="end" font-size="10" fill="#9ca3af">${fmt(val / 10000)}万</text>`;
+      }
+
+      // X軸ラベル
+      dcaData.filter((_, i) => i % Math.ceil(dcaData.length / 5) === 0 || i === dcaData.length - 1).forEach(d => {
+        html += `<text x="${sx(d.year)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#9ca3af">${d.year}年</text>`;
+      });
+
+      // 積立: 元本エリア
+      let principalPath = `M ${sx(0)} ${sy(dcaData[0].totalInvested)}`;
+      dcaData.forEach(d => { principalPath += ` L ${sx(d.year)} ${sy(d.totalInvested)}`; });
+      principalPath += ` L ${sx(maxX)} ${sy(0)} L ${sx(0)} ${sy(0)} Z`;
+      html += `<path d="${principalPath}" fill="#3b82f6" opacity="0.85"/>`;
+
+      // 積立: 利益エリア
+      let profitPath = `M ${sx(0)} ${sy(dcaData[0].balance)}`;
+      dcaData.forEach(d => { profitPath += ` L ${sx(d.year)} ${sy(d.balance)}`; });
+      let profitPathBottom = '';
+      [...dcaData].reverse().forEach(d => { profitPathBottom += ` L ${sx(d.year)} ${sy(d.totalInvested)}`; });
+      html += `<path d="${profitPath}${profitPathBottom} Z" fill="#bfdbfe" opacity="0.9"/>`;
+
+      // 一括投資ライン
+      let lumpPath = `M ${sx(0)} ${sy(lumpData[0].balance)}`;
+      lumpData.forEach(d => { lumpPath += ` L ${sx(d.year)} ${sy(d.balance)}`; });
+      html += `<path d="${lumpPath}" fill="none" stroke="#f97316" stroke-width="2.5" stroke-dasharray="6,3"/>`;
+
+      svg.innerHTML = html;
+    }
+
+    function renderScenario(label, rate, initialInvest, monthlyInvest, years, colorClass) {
+      const data = simulateDCA(initialInvest, monthlyInvest, rate, years);
+      const last = data[data.length - 1];
+      const profit = last.balance - last.totalInvested;
+      return `<div class="rounded-lg p-3 ${colorClass}">
+        <div class="text-xs font-semibold mb-1">${escHtml(label)} (年利 ${rate}%)</div>
+        <div class="text-lg font-bold">${fmt(last.balance / 10000)} 万円</div>
+        <div class="text-xs text-gray-500">利益: +${fmt(profit / 10000)} 万円</div>
+      </div>`;
+    }
+
+    function calculate() {
+      const initialInvest = parseFloat(document.getElementById('initialInvest').value) * 10000 || 0;
+      const monthlyInvest = parseFloat(document.getElementById('monthlyInvest').value) * 10000 || 0;
+      const annualRate = parseFloat(document.getElementById('annualRate').value) || 0;
+      const years = parseInt(document.getElementById('years').value) || 1;
+
+      saveSettings({
+        initialInvest: parseFloat(document.getElementById('initialInvest').value),
+        monthlyInvest: parseFloat(document.getElementById('monthlyInvest').value),
+        annualRate,
+        years,
+        riskFreeRate: parseFloat(document.getElementById('riskFreeRate').value)
+      });
+
+      const dcaData = simulateDCA(initialInvest, monthlyInvest, annualRate, years);
+      const last = dcaData[dcaData.length - 1];
+      const profit = last.balance - last.totalInvested;
+
+      document.getElementById('resFinal').textContent = fmt(last.balance / 10000);
+      document.getElementById('resTotalInvest').textContent = fmt(last.totalInvested / 10000);
+      document.getElementById('resProfit').textContent = fmt(profit / 10000);
+
+      // 一括投資比較
+      const lumpData = simulateLumpSum(initialInvest, monthlyInvest, annualRate, years);
+      const lumpLast = lumpData[lumpData.length - 1];
+      const lumpTotalInvest = initialInvest + monthlyInvest * 12 * years;
+      const lumpProfit = lumpLast.balance - lumpTotalInvest;
+      const diff = last.balance - lumpLast.balance;
+      const diffSign = diff >= 0 ? '+' : '';
+      document.getElementById('lumpSumCompare').innerHTML =
+        `<table class="w-full text-sm">
+          <thead><tr class="text-gray-400 text-xs"><th class="text-left pb-1">項目</th><th class="text-right pb-1">積立投資</th><th class="text-right pb-1">一括投資</th></tr></thead>
+          <tbody>
+            <tr><td class="py-1">最終資産</td><td class="text-right font-semibold text-blue-700">${fmt(last.balance/10000)} 万円</td><td class="text-right text-orange-600">${fmt(lumpLast.balance/10000)} 万円</td></tr>
+            <tr><td class="py-1">利益</td><td class="text-right font-semibold text-blue-700">${fmt(profit/10000)} 万円</td><td class="text-right text-orange-600">${fmt(lumpProfit/10000)} 万円</td></tr>
+          </tbody>
+        </table>
+        <div class="mt-2 text-xs text-gray-500">積立投資は一括投資と比べて <span class="font-bold ${diff >= 0 ? 'text-blue-600' : 'text-red-500'}">${diffSign}${fmt(diff/10000)} 万円</span>（同一総投資額で比較）</div>`;
+
+      // シナリオ比較
+      const baseRate = annualRate;
+      const optRate = Math.min(baseRate + 3, 30);
+      const pessRate = Math.max(baseRate - 2, 0.1);
+      document.getElementById('scenarios').innerHTML =
+        renderScenario('楽観シナリオ', optRate, initialInvest, monthlyInvest, years, 'bg-green-50') +
+        renderScenario('中立シナリオ', baseRate, initialInvest, monthlyInvest, years, 'bg-blue-50') +
+        renderScenario('悲観シナリオ', pessRate, initialInvest, monthlyInvest, years, 'bg-red-50');
+
+      drawChart(dcaData.map(d => ({...d, balance: d.balance, totalInvested: d.totalInvested})), lumpData);
+
+      document.getElementById('resultSummary').classList.remove('hidden');
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', calculate);
+    loadSettings();
+    calculate();
+  </script>
+</body>
+</html>
